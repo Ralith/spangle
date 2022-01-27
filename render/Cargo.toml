@@ -1,0 +1,15 @@
+[package]
+name = "render"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+spangle = { path = "../spangle" }
+ash = "0.35"
+vk-shader-macros = "0.2.7"
+lodepng = "3.5"
+clap = { version = "3", features = ["derive"] }
+renderdoc = { version = "0.10", optional = true }

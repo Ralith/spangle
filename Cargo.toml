@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["spangle"]
+members = ["spangle", "render"]
 
 [profile.dev.build-override]
 opt-level = 0
