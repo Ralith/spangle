@@ -20,11 +20,18 @@ macro_rules! cstr {
 }
 
 #[derive(Parser)]
+/// Visualize a 90 degree frustum of a starfield
 struct Options {
-    #[clap(short = 'r', default_value = "1024")]
+    /// Pixels per dimension for the output image
+    #[clap(short = 'r', default_value = "2048")]
     resolution: u32,
+    /// Total number of stars in the sphere (only about 1/6 of these will be visible)
     #[clap(short = 'c', default_value = "20000")]
     star_count: usize,
+    /// Scale factor for the rate of large-scale variation in irradiance
+    #[clap(short = 'f', default_value = "4.0")]
+    irradiance_frequency: f32,
+    /// PNG file to write
     out: PathBuf,
 }
 
@@ -33,6 +40,7 @@ fn main() {
     let mut ctx = Context::new(&options);
 
     let stars = spangle::Starfield::new()
+        .irradiance_frequency(options.irradiance_frequency)
         .count(options.star_count)
         .generate();
 
