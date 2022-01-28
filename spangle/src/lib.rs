@@ -4,6 +4,7 @@ use std::array;
 
 use rand::{Rng, SeedableRng};
 use rand_distr::StandardNormal;
+use rand_distr::Uniform;
 use rand_pcg::Pcg64Mcg;
 use simdeez::avx2::*;
 use simdeez::scalar::*;
@@ -73,7 +74,9 @@ impl Starfield {
             noise_seed: rng.gen(),
             rng,
             irradiance_frequency: self.irradiance_frequency,
-            irradiance_scale: self.expected_mean_irradiance * 2.0,
+            // * 2 to account for the simplex attenuation, * 2 to account for the uniform
+            // distribution
+            irradiance: Uniform::new(0.0, self.expected_mean_irradiance * 2.0 * 2.0),
             remaining: self.count,
             block,
         }
@@ -101,7 +104,7 @@ pub struct StarIter {
     rng: Pcg64Mcg,
     noise_seed: i32,
     irradiance_frequency: f32,
-    irradiance_scale: f32,
+    irradiance: Uniform<f32>,
     remaining: usize,
     block: array::IntoIter<([f32; 3], f32), { BLOCK_SIZE - 1 }>,
 }
@@ -117,10 +120,12 @@ impl Iterator for StarIter {
                 let mut x = Block([(); BLOCK_SIZE].map(|()| self.rng.sample(StandardNormal)));
                 let mut y = Block([(); BLOCK_SIZE].map(|()| self.rng.sample(StandardNormal)));
                 let mut z = Block([(); BLOCK_SIZE].map(|()| self.rng.sample(StandardNormal)));
+                let irradiance =
+                    Block([(); BLOCK_SIZE].map(|()| self.rng.sample(&self.irradiance)));
                 let samples = normalize_and_sample_runtime_select(
                     self.noise_seed,
                     self.irradiance_frequency,
-                    self.irradiance_scale,
+                    &irradiance,
                     &mut x,
                     &mut y,
                     &mut z,
@@ -218,17 +223,18 @@ simd_runtime_generate!(
     fn normalize_and_sample(
         seed: i32,
         frequency: f32,
-        scale: f32,
+        irradiance: &Block,
         x: &mut Block,
         y: &mut Block,
         z: &mut Block,
     ) -> Block {
         assert!(BLOCK_SIZE >= S::VF32_WIDTH);
         let mut out = Block([0.0; BLOCK_SIZE]);
-        for (((x, y), z), out) in
+        for ((((x, y), z), irradiance), out) in
             x.0.chunks_mut(S::VF32_WIDTH)
                 .zip(y.0.chunks_mut(S::VF32_WIDTH))
                 .zip(z.0.chunks_mut(S::VF32_WIDTH))
+                .zip(irradiance.0.chunks(S::VF32_WIDTH))
                 .zip(out.0.chunks_mut(S::VF32_WIDTH))
         {
             // Normalize
@@ -251,7 +257,7 @@ simd_runtime_generate!(
             let z_scaled = freq * z_unit;
             let samples = simplex_3d::<S>(x_scaled, y_scaled, z_scaled, seed);
             let mapped = S::fmadd_ps(S::set1_ps(0.5), samples, S::set1_ps(0.5));
-            S::store_ps(&mut out[0], mapped * S::set1_ps(scale))
+            S::store_ps(&mut out[0], mapped * S::load_ps(&irradiance[0]))
         }
         out
     }
