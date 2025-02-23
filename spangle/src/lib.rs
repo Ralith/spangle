@@ -71,12 +71,12 @@ impl Starfield {
         let mut block = [([0.0; 3], 0.0); BLOCK_SIZE - 1].into_iter();
         block.nth(BLOCK_SIZE - 1); // Make block empty
         StarIter {
-            noise_seed: rng.gen(),
+            noise_seed: rng.random(),
             rng,
             irradiance_frequency: self.irradiance_frequency,
             // * 2 to account for the simplex attenuation, * 2 to account for the uniform
             // distribution
-            irradiance: Uniform::new(0.0, self.expected_mean_irradiance * 2.0 * 2.0),
+            irradiance: Uniform::new(0.0, self.expected_mean_irradiance * 2.0 * 2.0).unwrap(),
             remaining: self.count,
             block,
         }
@@ -269,7 +269,7 @@ mod tests {
 
     #[test]
     fn star_sanity() {
-        let seed = rand::thread_rng().gen();
+        let seed = rand::rng().random();
         println!("seed: {:x?}", seed);
         let iter = Starfield::new().seed(seed).generate().take(100);
         for star in iter {

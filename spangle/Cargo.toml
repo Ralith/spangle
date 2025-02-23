@@ -6,8 +6,8 @@ repository = "https://github.com/Ralith/spangle"
 description = "Generate plausible, aesthetically appealing spherical starfields"
 
 [dependencies]
-rand = "0.8"
-rand_distr = "0.4"
-rand_pcg = "0.3"
+rand = "0.9"
+rand_distr = "0.5"
+rand_pcg = "0.9"
 simdnoise = { git = "https://github.com/jackmott/rust-simd-noise", rev = "3a4f3e6f79608616b6ee186dc665b601d015dc1e" }
 simdeez = "1.0"
