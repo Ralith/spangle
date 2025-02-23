@@ -6,11 +6,11 @@ use rand::{Rng, SeedableRng};
 use rand_distr::StandardNormal;
 use rand_distr::Uniform;
 use rand_pcg::Pcg64Mcg;
+use simdeez::Simd;
 use simdeez::avx2::*;
 use simdeez::scalar::*;
 use simdeez::sse2::*;
 use simdeez::sse41::*;
-use simdeez::Simd;
 use simdnoise::simplex::simplex_3d;
 
 /// Parameters defining a starfield
@@ -228,38 +228,40 @@ simd_runtime_generate!(
         y: &mut Block,
         z: &mut Block,
     ) -> Block {
-        assert!(BLOCK_SIZE >= S::VF32_WIDTH);
-        let mut out = Block([0.0; BLOCK_SIZE]);
-        for ((((x, y), z), irradiance), out) in
-            x.0.chunks_mut(S::VF32_WIDTH)
-                .zip(y.0.chunks_mut(S::VF32_WIDTH))
-                .zip(z.0.chunks_mut(S::VF32_WIDTH))
-                .zip(irradiance.0.chunks(S::VF32_WIDTH))
-                .zip(out.0.chunks_mut(S::VF32_WIDTH))
-        {
-            // Normalize
-            let x_reg = S::load_ps(&x[0]);
-            let y_reg = S::load_ps(&y[0]);
-            let z_reg = S::load_ps(&z[0]);
-            let inverse_len =
-                S::set1_ps(1.0) / S::sqrt_ps(x_reg * x_reg + y_reg * y_reg + z_reg * z_reg);
-            let x_unit = x_reg * inverse_len;
-            let y_unit = y_reg * inverse_len;
-            let z_unit = z_reg * inverse_len;
-            S::store_ps(&mut x[0], x_unit);
-            S::store_ps(&mut y[0], y_unit);
-            S::store_ps(&mut z[0], z_unit);
+        unsafe {
+            assert!(BLOCK_SIZE >= S::VF32_WIDTH);
+            let mut out = Block([0.0; BLOCK_SIZE]);
+            for ((((x, y), z), irradiance), out) in
+                x.0.chunks_mut(S::VF32_WIDTH)
+                    .zip(y.0.chunks_mut(S::VF32_WIDTH))
+                    .zip(z.0.chunks_mut(S::VF32_WIDTH))
+                    .zip(irradiance.0.chunks(S::VF32_WIDTH))
+                    .zip(out.0.chunks_mut(S::VF32_WIDTH))
+            {
+                // Normalize
+                let x_reg = S::load_ps(&x[0]);
+                let y_reg = S::load_ps(&y[0]);
+                let z_reg = S::load_ps(&z[0]);
+                let inverse_len =
+                    S::set1_ps(1.0) / S::sqrt_ps(x_reg * x_reg + y_reg * y_reg + z_reg * z_reg);
+                let x_unit = x_reg * inverse_len;
+                let y_unit = y_reg * inverse_len;
+                let z_unit = z_reg * inverse_len;
+                S::store_ps(&mut x[0], x_unit);
+                S::store_ps(&mut y[0], y_unit);
+                S::store_ps(&mut z[0], z_unit);
 
-            // Sample
-            let freq = S::set1_ps(frequency);
-            let x_scaled = freq * x_unit;
-            let y_scaled = freq * y_unit;
-            let z_scaled = freq * z_unit;
-            let samples = simplex_3d::<S>(x_scaled, y_scaled, z_scaled, seed);
-            let mapped = S::fmadd_ps(S::set1_ps(0.5), samples, S::set1_ps(0.5));
-            S::store_ps(&mut out[0], mapped * S::load_ps(&irradiance[0]))
+                // Sample
+                let freq = S::set1_ps(frequency);
+                let x_scaled = freq * x_unit;
+                let y_scaled = freq * y_unit;
+                let z_scaled = freq * z_unit;
+                let samples = simplex_3d::<S>(x_scaled, y_scaled, z_scaled, seed);
+                let mapped = S::fmadd_ps(S::set1_ps(0.5), samples, S::set1_ps(0.5));
+                S::store_ps(&mut out[0], mapped * S::load_ps(&irradiance[0]))
+            }
+            out
         }
-        out
     }
 );
 

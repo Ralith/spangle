@@ -1,7 +1,7 @@
 [package]
 name = "spangle"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 repository = "https://github.com/Ralith/spangle"
 description = "Generate plausible, aesthetically appealing spherical starfields"
 
